@@ -7,6 +7,7 @@
 #include "vm.h"
 #include <string.h>
 #include <errno.h>
+#include <stdio.h>
 
 typedef long (*syscall_t)(long, long, long, long, long, long, long);
 
@@ -282,6 +283,12 @@ long sys_mkdir(const char* name, int mode)
   return sys_mkdirat(AT_FDCWD, name, mode);
 }
 
+int sys_chdir(const char *path)
+{
+  return frontend_syscall(SYS_chdir, (uintptr_t)path, 0, 0, 0, 0, 0, 0);
+}
+
+
 long sys_getcwd(const char* buf, size_t size)
 {
   populate_mapping(buf, size, PROT_WRITE);
@@ -404,6 +411,22 @@ int sys_getdents(int fd, void* dirbuf, int count)
   return 0; //stub
 }
 
+static int sys_set_tid_address()
+{
+  return 1;
+}
+
+int sys_getrlimit(unsigned int resource, struct rlimit* rlim)
+{
+  struct rlimit _rlim;
+  //return RLIM_INFINITY;
+  _rlim.rlim_cur = RLIM_INFINITY;
+  _rlim.rlim_max = RLIM_INFINITY;
+  //memcpy(rlim,&_rlim,sizeof(_rlim));
+  memset(rlim,1,sizeof(_rlim));
+  return 0;
+}
+
 static int sys_stub_success()
 {
   return 0;
@@ -464,6 +487,26 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
   };
 
   if(n >= ARRAY_SIZE(syscall_table) || !syscall_table[n])
+    panic("bad syscall array_size %ld #%ld->%ld!",ARRAY_SIZE(syscall_table),n,syscall_table[n]);
+  const static void* old_syscall_table[] = {
+    [-OLD_SYSCALL_THRESHOLD + SYS_open] = sys_open,
+    [-OLD_SYSCALL_THRESHOLD + SYS_link] = sys_link,
+    [-OLD_SYSCALL_THRESHOLD + SYS_unlink] = sys_unlink,
+    [-OLD_SYSCALL_THRESHOLD + SYS_mkdir] = sys_mkdir,
+    [-OLD_SYSCALL_THRESHOLD + SYS_access] = sys_access,
+    [-OLD_SYSCALL_THRESHOLD + SYS_stat] = sys_stat,
+    [-OLD_SYSCALL_THRESHOLD + SYS_lstat] = sys_lstat,
+    [-OLD_SYSCALL_THRESHOLD + SYS_time] = sys_time,
+  };
+
+  syscall_t f = 0;
+
+  if (n < ARRAY_SIZE(syscall_table))
+    f = syscall_table[n];
+  else if (n - OLD_SYSCALL_THRESHOLD < ARRAY_SIZE(old_syscall_table))
+    f = old_syscall_table[n - OLD_SYSCALL_THRESHOLD];
+
+  if (!f)
     panic("bad syscall #%ld!",n);
 
   long r = ((syscall_t)syscall_table[n])(a0, a1, a2, a3, a4, a5, n);
