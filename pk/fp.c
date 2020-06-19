@@ -31,20 +31,20 @@ int emulate_fp(trapframe_t* tf)
   }
 
   if(noisy)
-    printk("FPU emulation at pc %lx, insn %x\n",tf->epc,(uint32_t)tf->insn);
+    printk("FPU emulation at pc %lx, insn %x\n",tf->m_epc,(uint32_t)tf->m_insn);
 
-  #define RS1 ((tf->insn >> 15) & 0x1F)
-  #define RS2 ((tf->insn >> 20) & 0x1F)
-  #define RS3 ((tf->insn >> 27) & 0x1F)
-  #define RD  ((tf->insn >>  7) & 0x1F)
-  #define RM  ((tf->insn >> 12) &  0x7)
+  #define RS1 ((tf->m_insn >> 15) & 0x1F)
+  #define RS2 ((tf->m_insn >> 20) & 0x1F)
+  #define RS3 ((tf->m_insn >> 27) & 0x1F)
+  #define RD  ((tf->m_insn >>  7) & 0x1F)
+  #define RM  ((tf->m_insn >> 12) &  0x7)
 
-  int32_t imm = (int32_t)tf->insn >> 20;
+  int32_t imm = (int32_t)tf->m_insn >> 20;
   int32_t bimm = RD | imm >> 5 << 5;
 
-  #define XRS1 (tf->gpr[RS1])
-  #define XRS2 (tf->gpr[RS2])
-  #define XRDR (tf->gpr[RD])
+  #define XRS1 (tf->m_gpr[RS1])
+  #define XRS2 (tf->m_gpr[RS2])
+  #define XRDR (tf->m_gpr[RD])
 
   uint64_t frs1d = fp_state.fpr[RS1];
   uint64_t frs2d = fp_state.fpr[RS2];
@@ -59,7 +59,7 @@ int emulate_fp(trapframe_t* tf)
   softfloat_exceptionFlags = fp_state.fsr.fsr.flags;
   softfloat_roundingMode = (RM == 7) ? fp_state.fsr.fsr.rm : RM;
 
-  #define IS_INSN(x) ((tf->insn & MASK_ ## x) == MATCH_ ## x)
+  #define IS_INSN(x) ((tf->m_insn & MASK_ ## x) == MATCH_ ## x)
 
   int do_writeback = 0;
   int writeback_dp;
@@ -281,7 +281,7 @@ get_fp_reg(unsigned int which, unsigned int dp)
 
 void init_fp(trapframe_t* tf)
 {
-  tf->sr |= SR_EF;
+  tf->m_sr |= SR_EF;
   set_csr(status, SR_EF);
 
   put_fp_state(fp_state.fpr, fp_state.fsr.bits);

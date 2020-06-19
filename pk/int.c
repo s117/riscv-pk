@@ -12,20 +12,20 @@
 int emulate_int(trapframe_t* tf)
 {
   if(noisy)
-    printk("Int emulation at pc %lx, insn %x\n",tf->epc,(uint32_t)tf->insn);
+    printk("Int emulation at pc %lx, insn %x\n",tf->m_epc,(uint32_t)tf->m_insn);
 
-  #define RS1 ((tf->insn >> 15) & 0x1F)
-  #define RS2 ((tf->insn >> 20) & 0x1F)
-  #define RD  ((tf->insn >>  7) & 0x1F)
+  #define RS1 ((tf->m_insn >> 15) & 0x1F)
+  #define RS2 ((tf->m_insn >> 20) & 0x1F)
+  #define RD  ((tf->m_insn >>  7) & 0x1F)
 
-//  #define XRS1 (tf->gpr[RS1])
-//  #define XRS2 (tf->gpr[RS2])
-  #define XRD  (tf->gpr[RD])
+//  #define XRS1 (tf->m_gpr[RS1])
+//  #define XRS2 (tf->m_gpr[RS2])
+  #define XRD  (tf->m_gpr[RD])
 
-  unsigned long xrs1 = tf->gpr[RS1];
-  unsigned long xrs2 = tf->gpr[RS2];
+  unsigned long xrs1 = tf->m_gpr[RS1];
+  unsigned long xrs2 = tf->m_gpr[RS2];
 
-  #define IS_INSN(x) ((tf->insn & MASK_ ## x) == MATCH_ ## x)
+  #define IS_INSN(x) ((tf->m_insn & MASK_ ## x) == MATCH_ ## x)
    
   if(IS_INSN(DIV))
   {

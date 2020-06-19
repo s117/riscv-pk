@@ -119,15 +119,15 @@ void dump_tf(trapframe_t* tf)
     "s8", "s9", "sA", "sB", "t3", "t4",  "t5",  "t6"
   };
 
-  tf->gpr[0] = 0;
+  tf->m_gpr[0] = 0;
 
   for(int i = 0; i < 32; i+=4)
   {
     for(int j = 0; j < 4; j++)
-      printk("%s %lx%c",regnames[i+j],tf->gpr[i+j],j < 3 ? ' ' : '\n');
+      printk("%s %lx%c",regnames[i+j],tf->m_gpr[i+j],j < 3 ? ' ' : '\n');
   }
-  printk("sr %lx pc %lx va %lx insn       %x\n",tf->sr,tf->epc,tf->badvaddr,
-         (uint32_t)tf->insn);
+  printk("sr %lx pc %lx va %lx insn       %x\n",tf->m_sr,tf->m_epc,tf->m_badvaddr,
+         (uint32_t)tf->m_insn);
 }
 
 void do_panic(const char* s, ...)

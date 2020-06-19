@@ -8,7 +8,7 @@
 static void handle_accelerator_disabled(trapframe_t* tf)
 {
   if (have_accelerator)
-    tf->sr |= SR_EA;
+    tf->m_sr |= SR_EA;
   else
   { 
     dump_tf(tf);
@@ -24,24 +24,24 @@ static void handle_privileged_instruction(trapframe_t* tf)
 
 static void handle_illegal_instruction(trapframe_t* tf)
 {
-  tf->insn = *(uint16_t*)tf->epc;
-  int len = insn_len(tf->insn);
+  tf->m_insn = *(uint16_t*)tf->m_epc;
+  int len = insn_len(tf->m_insn);
   if (len == 4)
-    tf->insn |= ((uint32_t)*(uint16_t*)(tf->epc + 2) << 16);
+    tf->m_insn |= ((uint32_t)*(uint16_t*)(tf->m_epc + 2) << 16);
   else
     kassert(len == 2);
 
 #ifdef PK_ENABLE_FP_EMULATION
   if (emulate_fp(tf) == 0)
   {
-    tf->epc += len;
+    tf->m_epc += len;
     return;
   }
 #endif
 
   if (emulate_int(tf) == 0)
   {
-    tf->epc += len;
+    tf->m_epc += len;
     return;
   }
 
@@ -61,7 +61,7 @@ static void handle_breakpoint(trapframe_t* tf)
 {
   dump_tf(tf);
   printk("Breakpoint!\n");
-  tf->epc += 4;
+  tf->m_epc += 4;
 }
 
 static void handle_misaligned_fetch(trapframe_t* tf)
@@ -86,35 +86,35 @@ void handle_misaligned_store(trapframe_t* tf)
 static void segfault(trapframe_t* tf, uintptr_t addr, const char* type)
 {
   dump_tf(tf);
-  const char* who = (tf->sr & SR_PS) ? "Kernel" : "User";
+  const char* who = (tf->m_sr & SR_PS) ? "Kernel" : "User";
   panic("%s %s segfault @ %p", who, type, addr);
 }
 
 static void handle_fault_fetch(trapframe_t* tf)
 {
-  if (handle_page_fault(tf->epc, PROT_EXEC) != 0)
-    segfault(tf, tf->epc, "fetch");
+  if (handle_page_fault(tf->m_epc, PROT_EXEC) != 0)
+    segfault(tf, tf->m_epc, "fetch");
 }
 
 void handle_fault_load(trapframe_t* tf)
 {
-  tf->badvaddr = read_csr(badvaddr);
-  if (handle_page_fault(tf->badvaddr, PROT_READ) != 0)
-    segfault(tf, tf->badvaddr, "load");
+  tf->m_badvaddr = read_csr(badvaddr);
+  if (handle_page_fault(tf->m_badvaddr, PROT_READ) != 0)
+    segfault(tf, tf->m_badvaddr, "load");
 }
 
 void handle_fault_store(trapframe_t* tf)
 {
-  tf->badvaddr = read_csr(badvaddr);
-  if (handle_page_fault(tf->badvaddr, PROT_WRITE) != 0)
-    segfault(tf, tf->badvaddr, "store");
+  tf->m_badvaddr = read_csr(badvaddr);
+  if (handle_page_fault(tf->m_badvaddr, PROT_WRITE) != 0)
+    segfault(tf, tf->m_badvaddr, "store");
 }
 
 static void handle_syscall(trapframe_t* tf)
 {
-  tf->gpr[10] = do_syscall(tf->gpr[10], tf->gpr[11], tf->gpr[12], tf->gpr[13],
-                           tf->gpr[14], tf->gpr[15], tf->gpr[17]);
-  tf->epc += 4;
+  tf->m_gpr[10] = do_syscall(tf->m_gpr[10], tf->m_gpr[11], tf->m_gpr[12], tf->m_gpr[13],
+                           tf->m_gpr[14], tf->m_gpr[15], tf->m_gpr[17]);
+  tf->m_epc += 4;
 }
 
 void handle_trap(trapframe_t* tf)
@@ -138,9 +138,9 @@ void handle_trap(trapframe_t* tf)
     [CAUSE_ACCELERATOR_DISABLED] = handle_accelerator_disabled,
   };
 
-  kassert(tf->cause < ARRAY_SIZE(trap_handlers) && trap_handlers[tf->cause]);
+  kassert(tf->m_cause < ARRAY_SIZE(trap_handlers) && trap_handlers[tf->m_cause]);
 
-  trap_handlers[tf->cause](tf);
+  trap_handlers[tf->m_cause](tf);
 
   pop_tf(tf);
 }

@@ -22,11 +22,11 @@ void init_tf(trapframe_t* tf, long pc, long sp, int user64)
   memset(tf,0,sizeof(*tf));
   if(sizeof(void*) != 8)
     kassert(!user64);
-  tf->sr = (read_csr(status) & (SR_IM | SR_S64 | SR_VM)) | SR_S | SR_PEI;
+  tf->m_sr = (read_csr(status) & (SR_IM | SR_S64 | SR_VM)) | SR_S | SR_PEI;
   if(user64)
-    tf->sr |= SR_U64;
-  tf->gpr[2] = sp;
-  tf->epc = pc;
+    tf->m_sr |= SR_U64;
+  tf->m_gpr[2] = sp;
+  tf->m_epc = pc;
 }
 
 static void handle_option(const char* s)

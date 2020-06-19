@@ -52,30 +52,68 @@
 
 #ifndef __ASSEMBLER__
 
-#define read_csr(reg) ({ long __tmp; \
+// Because GCC 9.2.0 is using RV64I 2.2 which has a new CSR mapping scheme
+// we need to provide this explicitly CSR map  to make the code compiles and works
+#define sup0         0x500
+#define sup1         0x501
+#define epc          0x502
+#define badvaddr     0x503
+#define ptbr         0x504
+#define evec         0x508
+#define cause        0x509
+#define status       0x50A
+#define fatc         0x50D
+#define clear_ipi    0x50F
+#define tohost       0x51E
+#define fromhost     0x51F
+#define uarch0       0xCC0
+#define uarch1       0xCC1
+#define uarch2       0xCC2
+#define uarch3       0xCC3
+#define uarch4       0xCC4
+#define uarch5       0xCC5
+#define uarch6       0xCC6
+#define uarch7       0xCC7
+#define uarch8       0xCC8
+#define uarch9       0xCC9
+#define uarch10      0xCCA
+#define uarch11      0xCCB
+#define uarch12      0xCCC
+#define uarch13      0xCCD
+#define uarch14      0xCCE
+#define uarch15      0xCCF
+
+// The following change is for allowing macro expansion on macro argument
+#define _read_csr(reg) ({ long __tmp; \
   asm volatile ("csrr %0, " #reg : "=r"(__tmp)); \
   __tmp; })
 
-#define write_csr(reg, val) \
+#define _write_csr(reg, val) \
   asm volatile ("csrw " #reg ", %0" :: "r"(val))
 
-#define swap_csr(reg, val) ({ long __tmp; \
+#define _swap_csr(reg, val) ({ long __tmp; \
   asm volatile ("csrrw %0, " #reg ", %1" : "=r"(__tmp) : "r"(val)); \
   __tmp; })
 
-#define set_csr(reg, bit) ({ long __tmp; \
+#define _set_csr(reg, bit) ({ long __tmp; \
   if (__builtin_constant_p(bit) && (bit) < 32) \
     asm volatile ("csrrs %0, " #reg ", %1" : "=r"(__tmp) : "i"(bit)); \
   else \
     asm volatile ("csrrs %0, " #reg ", %1" : "=r"(__tmp) : "r"(bit)); \
   __tmp; })
 
-#define clear_csr(reg, bit) ({ long __tmp; \
+#define _clear_csr(reg, bit) ({ long __tmp; \
   if (__builtin_constant_p(bit) && (bit) < 32) \
     asm volatile ("csrrc %0, " #reg ", %1" : "=r"(__tmp) : "i"(bit)); \
   else \
     asm volatile ("csrrc %0, " #reg ", %1" : "=r"(__tmp) : "r"(bit)); \
   __tmp; })
+
+#define write_csr(reg, val)  _write_csr(reg, val)
+#define swap_csr(reg, val)   _swap_csr(reg, val)
+#define set_csr(reg, bit)    _set_csr(reg, bit)
+#define clear_csr(reg, bit)  _clear_csr(reg, bit)
+#define read_csr(reg)        _read_csr(reg) 
 
 #define rdtime() ({ unsigned long __tmp; \
   asm volatile ("rdtime %0" : "=r"(__tmp)); \
