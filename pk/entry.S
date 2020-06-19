@@ -113,7 +113,8 @@ pop_tf:  # write the trap frame onto the stack
   csrr  x1, sup0
   csrw  epc, x2
   csrr  x2, sup1
-  sret
+  # sret
+  .word 0x80000073
 
   .global  trap_entry
 trap_entry:
