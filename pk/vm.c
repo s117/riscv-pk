@@ -451,7 +451,7 @@ void vm_init()
     }
 
     size_t stack_size = RISCV_PGSIZE * stack_pages;
-    current.stack_top = MIN(first_free_page, 0x80000000); // for RV32 sanity
+    current.stack_top = first_free_page;
     uintptr_t stack_bot = current.stack_top - stack_size;
 
     if (have_vm)
