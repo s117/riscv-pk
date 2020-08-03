@@ -16,6 +16,7 @@
 #define ET_DYN 3
 
 #define PT_LOAD 1
+#define PT_INTERP 3
 
 #define AT_NULL   0
 #define AT_PHDR   3
@@ -25,6 +26,10 @@
 #define AT_ENTRY  9
 #define AT_SECURE 23
 #define AT_RANDOM 25
+
+#define PF_X 1
+#define PF_W 2
+#define PF_R 4
 
 typedef struct {
   uint8_t  e_ident[16];

@@ -8,6 +8,19 @@
 #include <elf.h>
 #include <string.h>
 
+/**
+ * The protection flags are in the p_flags section of the program header.
+ * But rather annoyingly, they are the reverse of what mmap expects.
+ */
+static inline int get_prot(uint32_t p_flags)
+{
+  int prot_x = (p_flags & PF_X) ? PROT_EXEC  : PROT_NONE;
+  int prot_w = (p_flags & PF_W) ? PROT_WRITE : PROT_NONE;
+  int prot_r = (p_flags & PF_R) ? PROT_READ  : PROT_NONE;
+
+  return (prot_x | prot_w | prot_r);
+}
+
 void load_elf(const char* fn, elf_info* info)
 {
   file_t* file = file_open(fn, O_RDONLY, 0);
@@ -38,18 +51,27 @@ void load_elf(const char* fn, elf_info* info)
     info->phnum = eh->e_phnum; \
     info->phent = sizeof(*ph); \
     ph = (typeof(ph))info->phdr; \
-    for(int i = 0; i < eh->e_phnum; i++, ph++) { \
-      if(ph->p_type == PT_LOAD && ph->p_memsz) { \
-        info->brk_min = MAX(info->brk_min, bias + ph->p_vaddr + ph->p_memsz); \
-        size_t vaddr = ROUNDDOWN(ph->p_vaddr, RISCV_PGSIZE), prepad = ph->p_vaddr - vaddr; \
-        size_t memsz = ph->p_memsz + prepad, filesz = ph->p_filesz + prepad; \
-        size_t offset = ph->p_offset - prepad; \
-        vaddr += bias; \
-        if (__do_mmap(vaddr, filesz, -1, MAP_FIXED|MAP_PRIVATE, file, offset) != vaddr) \
+    int flags = MAP_FIXED | MAP_PRIVATE; \
+    for (int i = eh->e_phnum - 1; i >= 0; i--) { \
+      if(ph[i].p_type == PT_INTERP) { \
+        panic("not a statically linked ELF program"); \
+      } \
+      if(ph[i].p_type == PT_LOAD && ph[i].p_memsz) { \
+        uintptr_t prepad = ph[i].p_vaddr % RISCV_PGSIZE; \
+        uintptr_t vaddr = ph[i].p_vaddr + bias; \
+        if (vaddr + ph[i].p_memsz > info->brk_min) \
+          info->brk_min = vaddr + ph[i].p_memsz; \
+        int flags2 = flags | (prepad ? MAP_POPULATE : 0); \
+        int prot = get_prot(ph[i].p_flags); \
+        if (__do_mmap(vaddr - prepad, ph[i].p_filesz + prepad, prot | PROT_WRITE, flags2, file, ph[i].p_offset - prepad) != vaddr - prepad) \
           goto fail; \
-        size_t mapped = ROUNDUP(filesz, RISCV_PGSIZE); \
-        if (memsz > mapped) \
-          if (__do_mmap(vaddr + mapped, memsz - mapped, -1, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) != vaddr + mapped) \
+        memset((void*)vaddr - prepad, 0, prepad); \
+        if (!(prot & PROT_WRITE)) \
+          if (do_mprotect(vaddr - prepad, ph[i].p_filesz + prepad, prot)) \
+            goto fail; \
+        size_t mapped = ROUNDUP(ph[i].p_filesz + prepad, RISCV_PGSIZE) - prepad; \
+        if (ph[i].p_memsz > mapped) \
+          if (__do_mmap(vaddr + mapped, ph[i].p_memsz - mapped, prot, flags|MAP_ANONYMOUS, 0, 0) != vaddr + mapped) \
             goto fail; \
       } \
     } \
