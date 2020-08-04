@@ -64,7 +64,6 @@ struct rlimit {
 #define SYS_linkat 37
 #define SYS_unlinkat 35
 #define SYS_mkdirat 34
-#define SYS_ftruncate 46
 #define SYS_chdir 49
 #define SYS_getcwd 17
 #define SYS_stat 1038
@@ -91,6 +90,7 @@ struct rlimit {
 #define SYS_gettimeofday 169
 #define SYS_times 153
 #define SYS_fcntl 25
+#define SYS_ftruncate 46
 #define SYS_getdents 61
 #define SYS_dup 23
 #define SYS_readlinkat 78
