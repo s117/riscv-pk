@@ -52,6 +52,20 @@ int file_dup(file_t* f)
   return -1;
 }
 
+int file_dup3(file_t* f, int newfd)
+{
+  if (newfd < 0 || newfd >= MAX_FDS)
+      return -1;
+  kassert(sizeof(long) == sizeof(file_t*));
+  if (atomic_cas(&fds[newfd], 0, (long)f) == 0)
+  {
+      file_incref(f);
+      return newfd;
+  }
+
+  return -1;
+}
+
 void file_init()
 {
   stdin = file_get_free();

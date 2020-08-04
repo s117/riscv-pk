@@ -196,6 +196,21 @@ int sys_dup(int fd)
   return r;
 }
 
+int sys_dup3(int fd, int newfd, int flags)
+{
+  kassert(flags == 0);
+  int r = -EBADF;
+  file_t* f = file_get(fd);
+
+  if (f)
+  {
+    r = file_dup3(f, newfd);
+    file_decref(f);
+  }
+
+  return r;
+}
+
 ssize_t sys_lseek(int fd, size_t ptr, int dir)
 {
   ssize_t r = -EBADF;
@@ -405,6 +420,15 @@ int sys_gettimeofday(long* loc)
   return 0;
 }
 
+long sys_clock_gettime(int clk_id, long *loc)
+{
+  uintptr_t t = rdcycle();
+  put_long(loc, 0, t/CLOCK_FREQ);
+  put_long(loc, 1, (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000000));
+
+  return 0;
+}
+
 ssize_t sys_writev(int fd, const void* iov, int cnt)
 {
   populate_mapping(iov, cnt*2*long_bytes, PROT_READ);
@@ -485,6 +509,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_munmap] = sys_munmap,
     [SYS_mremap] = sys_mremap,
     [SYS_mprotect] = sys_mprotect,
+    [SYS_prlimit64] = sys_stub_nosys,
     [SYS_rt_sigaction] = sys_rt_sigaction,
     [SYS_time] = sys_time,
     [SYS_gettimeofday] = sys_gettimeofday,
@@ -496,9 +521,17 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_ftruncate] = sys_ftruncate,
     [SYS_getdents] = sys_getdents,
     [SYS_dup] = sys_dup,
+    [SYS_dup3] = sys_dup3,
     [SYS_readlinkat] = sys_stub_nosys,
     [SYS_rt_sigprocmask] = sys_stub_success,
     [SYS_ioctl] = sys_stub_nosys,
+    [SYS_clock_gettime] = sys_clock_gettime,
+    [SYS_getrusage] = sys_stub_nosys,
+    [SYS_getrlimit] = sys_stub_nosys,
+    [SYS_setrlimit] = sys_stub_nosys,
+    [SYS_set_tid_address] = sys_stub_nosys,
+    [SYS_set_robust_list] = sys_stub_nosys,
+    [SYS_madvise] = sys_stub_nosys,
   };
 
   if(n >= ARRAY_SIZE(syscall_table) || !syscall_table[n])

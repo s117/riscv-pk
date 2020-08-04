@@ -83,6 +83,7 @@ struct rlimit {
 #define SYS_munmap 215
 #define SYS_mremap 216
 #define SYS_mprotect 226
+#define SYS_prlimit64 261
 #define SYS_time 1062
 #define SYS_getmainvars 2011
 #define SYS_rt_sigaction 134
@@ -93,6 +94,7 @@ struct rlimit {
 #define SYS_ftruncate 46
 #define SYS_getdents 61
 #define SYS_dup 23
+#define SYS_dup3 24
 #define SYS_readlinkat 78
 #define SYS_rt_sigprocmask 135
 #define SYS_ioctl 29
@@ -102,6 +104,7 @@ struct rlimit {
 #define SYS_clock_gettime 113
 #define SYS_set_tid_address 96
 #define SYS_set_robust_list 99
+#define SYS_madvise 233
 
 #define OLD_SYSCALL_THRESHOLD 1024
 #define SYS_open 1024
