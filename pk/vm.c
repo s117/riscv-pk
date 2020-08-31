@@ -14,9 +14,9 @@ typedef struct {
   int prot;
 } vmr_t;
 
-#define MAX_VMR 32
-spinlock_t vm_lock = SPINLOCK_INIT;
-static vmr_t vmrs[MAX_VMR];
+static size_t MAX_VMR;
+static spinlock_t vm_lock = SPINLOCK_INIT;
+static vmr_t* vmrs;
 
 typedef uintptr_t pte_t;
 static pte_t* root_page_table;
@@ -314,7 +314,7 @@ uintptr_t do_brk(size_t addr)
   spinlock_lock(&vm_lock);
     addr = __do_brk(addr);
   spinlock_unlock(&vm_lock);
-  
+
   return addr;
 }
 
@@ -342,7 +342,7 @@ uintptr_t do_mremap(uintptr_t addr, size_t old_size, size_t new_size, int flags)
       }
     }
   spinlock_unlock(&vm_lock);
- 
+
   return res;
 }
 
@@ -360,7 +360,7 @@ uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot)
         res = -ENOMEM;
         break;
       }
-  
+
       if(!(*pte & PTE_V)){
         vmr_t* v = (vmr_t*)*pte;
         if((v->prot ^ prot) & ~v->prot){
@@ -381,7 +381,7 @@ uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot)
       }
     }
   spinlock_unlock(&vm_lock);
- 
+
   return res;
 }
 
@@ -413,6 +413,7 @@ void vm_init()
 {
   extern char _end;
   current.user_min = ROUNDUP((uintptr_t)&_end, RISCV_PGSIZE);
+  kassert(current.user_min < 0x10000);
   current.brk_min = current.user_min;
   current.brk = 0;
 
@@ -429,13 +430,17 @@ void vm_init()
   {
     uintptr_t max_addr = (uintptr_t)mem_mb << 20;
     size_t mem_pages = max_addr >> RISCV_PGSHIFT;
+    const size_t vmr_pages = 6;
     const size_t min_free_pages = 2*RISCV_PGLEVELS;
     const size_t min_stack_pages = 8;
     const size_t max_stack_pages = 1024;
-    kassert(mem_pages > min_free_pages + min_stack_pages);
+    kassert(mem_pages > min_free_pages + min_stack_pages + vmr_pages);
     free_pages = MAX(mem_pages >> (RISCV_PGLEVEL_BITS-1), min_free_pages);
     size_t stack_pages = CLAMP(mem_pages/32, min_stack_pages, max_stack_pages);
-    first_free_page = max_addr - free_pages * RISCV_PGSIZE;
+
+    MAX_VMR = (vmr_pages * RISCV_PGSIZE) / sizeof(vmr_t); // 6 x 8K pages provides 1024 VMR
+    vmrs = (vmr_t*)(max_addr - vmr_pages * RISCV_PGSIZE);
+    first_free_page = (uintptr_t)vmrs - free_pages * RISCV_PGSIZE;
 
     uintptr_t root_page_table_paddr = __page_alloc();
     kassert(root_page_table_paddr);
@@ -456,7 +461,7 @@ void vm_init()
 
     if (have_vm)
     {
-      __map_kernel_range(first_free_page, free_pages * RISCV_PGSIZE, PROT_READ|PROT_WRITE);
+      __map_kernel_range(first_free_page, (free_pages + vmr_pages) * RISCV_PGSIZE, PROT_READ|PROT_WRITE);
       kassert(__do_mmap(stack_bot, stack_size, -1, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == stack_bot);
       set_csr(status, SR_VM);
     }
