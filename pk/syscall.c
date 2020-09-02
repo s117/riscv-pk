@@ -346,6 +346,11 @@ pid_t sys_getpid()
   return 0;
 }
 
+pid_t sys_gettid()
+{
+  return 0;
+}
+
 int sys_getuid()
 {
   return 0;
@@ -501,6 +506,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_brk] = sys_brk,
     [SYS_uname] = sys_uname,
     [SYS_getpid] = sys_getpid,
+    [SYS_gettid] = sys_gettid,
     [SYS_getuid] = sys_getuid,
     [SYS_geteuid] = sys_getuid,
     [SYS_getgid] = sys_getuid,
