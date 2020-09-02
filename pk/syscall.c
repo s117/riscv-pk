@@ -356,6 +356,44 @@ int sys_getuid()
   return 0;
 }
 
+long sys_time(void*);
+int sys_info(struct sysinfo *info)
+{
+  size_t total_phy_pages = vm_stat_total_phy_pages();
+  size_t populated_virt_pages = vm_stat_populated_virt_pages();
+  size_t populated_kernel_virt_pages = vm_stat_populated_kernel_virt_pages();
+  /* Seconds since boot */
+  info->uptime = sys_time(NULL);
+  /* 1 minute load averages (always 100% load) */
+  info->loads[0] = (1 << SI_LOAD_SHIFT) * N_PROC;
+  /* 5 minutes load averages (always 100% load) */
+  info->loads[1] = (1 << SI_LOAD_SHIFT) * N_PROC;
+  /* 15 minutes load averages (always 100% load) */
+  info->loads[2] = (1 << SI_LOAD_SHIFT) * N_PROC;
+  /* Total usable main memory size */
+  info->totalram = total_phy_pages << RISCV_PGSHIFT;
+  /* Available memory size */
+  info->freeram = (total_phy_pages - populated_virt_pages) << RISCV_PGSHIFT;
+  /* Amount of shared memory */
+  info->sharedram = populated_kernel_virt_pages << RISCV_PGSHIFT;
+  /* Memory used by buffers */
+  info->bufferram = 0;
+  /* Total swap space size */
+  info->totalswap = 0;
+  /* swap space still available */
+  info->freeswap = 0;
+  /* Number of current processes */
+  info->procs = N_PROC;
+  /* Total high memory size */
+  info->totalhigh = 0;
+  /* Available high memory size */
+  info->freehigh = 0;
+  /* Memory unit size in bytes */
+  info->mem_unit = 1;
+
+  return 0;
+}
+
 uintptr_t sys_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
   uintptr_t ret =  do_mmap(addr, length, prot, flags, fd, offset);
@@ -410,7 +448,7 @@ int sys_times(void* restrict loc)
   put_long(loc, 1, 0);
   put_long(loc, 2, 0);
   put_long(loc, 3, 0);
-  
+
   return 0;
 }
 
@@ -421,7 +459,7 @@ int sys_gettimeofday(long* loc)
   uintptr_t t = rdcycle();
   put_long(loc, 0, t/CLOCK_FREQ);
   put_long(loc, 1, (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000));
-  
+
   return 0;
 }
 
@@ -511,6 +549,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_geteuid] = sys_getuid,
     [SYS_getgid] = sys_getuid,
     [SYS_getegid] = sys_getuid,
+    [SYS_info] = sys_info,
     [SYS_mmap] = sys_mmap,
     [SYS_munmap] = sys_munmap,
     [SYS_mremap] = sys_mremap,

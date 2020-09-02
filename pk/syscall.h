@@ -3,6 +3,8 @@
 #ifndef _PK_SYSCALL_H
 #define _PK_SYSCALL_H
 
+#include <stdint.h>
+
 #define RLIMIT_CPU		0	/* CPU time in sec */
 #define RLIMIT_FSIZE		1	/* Maximum filesize */
 #define RLIMIT_DATA		2	/* max data size */
@@ -80,6 +82,27 @@ struct rlimit {
 #define SYS_geteuid 175
 #define SYS_getgid 176
 #define SYS_getegid 177
+#define SYS_info 179
+
+#define SI_LOAD_SHIFT	16
+#define N_PROC 1
+struct sysinfo {
+  long uptime;             /* Seconds since boot */
+  unsigned long loads[3];  /* 1, 5, and 15 minute load averages */
+  unsigned long totalram;  /* Total usable main memory size */
+  unsigned long freeram;   /* Available memory size */
+  unsigned long sharedram; /* Amount of shared memory */
+  unsigned long bufferram; /* Memory used by buffers */
+  unsigned long totalswap; /* Total swap space size */
+  unsigned long freeswap;  /* swap space still available */
+  uint16_t procs;          /* Number of current processes */
+  uint16_t pad;            /* Explicit padding for m68k */
+  unsigned long totalhigh; /* Total high memory size */
+  unsigned long freehigh;  /* Available high memory size */
+  uint32_t mem_unit;       /* Memory unit size in bytes */
+  char _f[20-2*sizeof(unsigned long)-sizeof(uint16_t)]; /* Padding: libc5 uses this.. */
+};
+
 #define SYS_mmap 222
 #define SYS_munmap 215
 #define SYS_mremap 216
