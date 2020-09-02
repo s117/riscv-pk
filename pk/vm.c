@@ -24,6 +24,23 @@ static uintptr_t first_free_page;
 static size_t next_free_page;
 static size_t free_pages;
 
+// information tracked for sysinfo()
+static size_t total_phy_pages;
+static size_t mapped_kernel_virt_pages = 0;
+static size_t populated_kernel_virt_pages = 0;
+static size_t mapped_user_virt_pages = 0;
+static size_t populated_user_virt_pages = 0;
+
+size_t vm_stat_total_phy_pages() { return total_phy_pages; }
+
+size_t vm_stat_mapped_kernel_virt_pages() { return mapped_kernel_virt_pages; }
+size_t vm_stat_mapped_user_virt_pages() { return mapped_user_virt_pages; }
+size_t vm_stat_mapped_virt_pages() { return mapped_kernel_virt_pages + mapped_user_virt_pages; }
+
+size_t vm_stat_populated_kernel_virt_pages() { return populated_kernel_virt_pages; }
+size_t vm_stat_populated_user_virt_pages() { return populated_user_virt_pages; }
+size_t vm_stat_populated_virt_pages() { return populated_kernel_virt_pages + populated_user_virt_pages; }
+
 static uintptr_t __page_alloc()
 {
   if (next_free_page == free_pages)
@@ -186,6 +203,8 @@ static int __handle_page_fault(uintptr_t vaddr, int prot)
       memset((void*)vaddr, 0, RISCV_PGSIZE);
     __vmr_decref(v, 1);
     *pte = pte_create(ppn, v->prot, v->prot);
+
+    ++populated_user_virt_pages;
   }
 
   pte_t perms = pte_create(0, prot, prot);
@@ -214,8 +233,11 @@ static void __do_munmap(uintptr_t addr, size_t len)
 
     if (!(*pte & PTE_V))
       __vmr_decref((vmr_t*)*pte, 1);
+    else
+      --populated_user_virt_pages;
 
     *pte = 0;
+    --mapped_user_virt_pages;
   }
   flush_tlb(); // TODO: shootdown
 }
@@ -236,6 +258,7 @@ uintptr_t __do_mmap(uintptr_t addr, size_t length, int prot, int flags, file_t* 
   if (!v)
     return (uintptr_t)-1;
 
+  mapped_user_virt_pages += npage;
   for (uintptr_t a = addr; a < addr + length; a += RISCV_PGSIZE)
   {
     pte_t* pte = __walk_create(a);
@@ -393,6 +416,8 @@ static void __map_kernel_range(uintptr_t paddr, size_t len, int prot)
     pte_t* pte = __walk_create(a);
     kassert(pte);
     *pte = a | perms;
+    ++mapped_kernel_virt_pages;
+    ++populated_kernel_virt_pages;
   }
 }
 
@@ -430,6 +455,7 @@ void vm_init()
   {
     uintptr_t max_addr = (uintptr_t)mem_mb << 20;
     size_t mem_pages = max_addr >> RISCV_PGSHIFT;
+    total_phy_pages = mem_pages;
     const size_t vmr_pages = 6;
     const size_t min_free_pages = 2*RISCV_PGLEVELS;
     const size_t min_stack_pages = 8;

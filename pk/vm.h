@@ -28,4 +28,12 @@ uintptr_t do_mremap(uintptr_t addr, size_t old_size, size_t new_size, int flags)
 uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot);
 uintptr_t do_brk(uintptr_t addr);
 
+size_t vm_stat_total_phy_pages();
+size_t vm_stat_mapped_kernel_virt_pages();
+size_t vm_stat_mapped_user_virt_pages();
+size_t vm_stat_mapped_virt_pages();
+size_t vm_stat_populated_kernel_virt_pages();
+size_t vm_stat_populated_user_virt_pages();
+size_t vm_stat_populated_virt_pages();
+
 #endif
