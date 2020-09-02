@@ -540,6 +540,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_linkat] = sys_linkat,
     [SYS_unlinkat] = sys_unlinkat,
     [SYS_mkdirat] = sys_mkdirat,
+    [SYS_chdir] = sys_chdir,
     [SYS_getcwd] = sys_getcwd,
     [SYS_brk] = sys_brk,
     [SYS_uname] = sys_uname,
