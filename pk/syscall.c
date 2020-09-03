@@ -314,6 +314,24 @@ long sys_mkdir(const char* name, int mode)
 
 int sys_chdir(const char *path)
 {
+  /*
+  The for loop below is to populate the virtual memory pointed by 'path'.
+
+  Think what if 'path' is a pointer to a C string literial, but it hasn't been
+  accessed yet.
+
+  In this case, the 'path' points to a memory region that was mapped to an ELF
+  segment, but wasn't unpopulated yet, hence uninitialzied yet. If we send such
+  a pointer to the FESVR syscall interface, the host will read an uninitialzied
+  physical memory region pointed by 'path', through HTIF.
+
+  * In Spike, HTIF uses a debug_mmu to resolve the virtual address. It simplely
+  assumes ppn=vpn, instead of walking page table and checking PTE's valid bit.
+  (https://github.com/s117/riscv-isa-sim/blob/bc2e22fa6b241c6cce5fc74b9f2a717bfd237bac/riscv/htif.cc#L89)
+  (https://github.com/s117/riscv-isa-sim/blob/bc2e22fa6b241c6cce5fc74b9f2a717bfd237bac/riscv/mmu.cc#L86)
+  */
+  for (size_t i = 0; ((volatile const char*)path)[i]; ++i);
+
   return frontend_syscall(SYS_chdir, (uintptr_t)path, 0, 0, 0, 0, 0, 0);
 }
 
