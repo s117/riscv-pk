@@ -488,9 +488,12 @@ ssize_t sys_writev(int fd, const void* iov, int cnt)
   return ret;
 }
 
-int sys_getdents(int fd, void* dirbuf, int count)
+int sys_getdents64(int fd, void* dirbuf, int count)
 {
-  return 0; //stub
+  file_t* f = file_get(fd);
+
+  populate_mapping(dirbuf, count, PROT_WRITE);
+  return frontend_syscall(SYS_getdents64, f->kfd, (uintptr_t)dirbuf, count, 0, 0, 0, 0);
 }
 
 static int sys_set_tid_address()
@@ -566,7 +569,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_faccessat] = sys_faccessat,
     [SYS_fcntl] = sys_fcntl,
     [SYS_ftruncate] = sys_ftruncate,
-    [SYS_getdents] = sys_getdents,
+    [SYS_getdents64] = sys_getdents64,
     [SYS_dup] = sys_dup,
     [SYS_dup3] = sys_dup3,
     [SYS_readlinkat] = sys_stub_nosys,

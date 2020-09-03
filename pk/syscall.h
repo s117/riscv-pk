@@ -116,7 +116,7 @@ struct sysinfo {
 #define SYS_times 153
 #define SYS_fcntl 25
 #define SYS_ftruncate 46
-#define SYS_getdents 61
+#define SYS_getdents64 61
 #define SYS_dup 23
 #define SYS_dup3 24
 #define SYS_readlinkat 78
