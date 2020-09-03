@@ -512,6 +512,12 @@ int sys_getrlimit(unsigned int resource, struct rlimit* rlim)
   return 0;
 }
 
+ssize_t sys_getrandom(void *buf, size_t buflen, unsigned int flags)
+{
+  populate_mapping(buf, buflen, PROT_WRITE);
+  return frontend_syscall(SYS_getrandom, (uintptr_t)buf, buflen, flags, 0, 0, 0, 0);
+}
+
 static int sys_stub_success()
 {
   return 0;
@@ -582,6 +588,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_set_tid_address] = sys_stub_nosys,
     [SYS_set_robust_list] = sys_stub_nosys,
     [SYS_madvise] = sys_stub_nosys,
+    [SYS_getrandom] = sys_getrandom,
   };
 
   if(n >= ARRAY_SIZE(syscall_table) || !syscall_table[n])
