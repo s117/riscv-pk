@@ -7,10 +7,10 @@
 #include "frontend.h"
 #include "vm.h"
 
-#define MAX_FDS 128
-static atomic_t fds[MAX_FDS];
-#define MAX_FILES 128
-static file_t files[MAX_FILES] = {[0 ... MAX_FILES-1] = {-1,{0}}};
+static size_t MAX_FDS = 0;
+static atomic_t* fds = NULL;
+static size_t MAX_FILES = 0;
+static file_t* files = NULL;
 file_t *stdout, *stdin, *stderr;
 
 void file_incref(file_t* f)
@@ -66,8 +66,33 @@ int file_dup3(file_t* f, int newfd)
   return -1;
 }
 
+static void file_init_fds_mem(uintptr_t addr, size_t len)
+{
+  fds = (atomic_t*) addr;
+  MAX_FDS = len / sizeof(atomic_t);
+}
+
+static void file_init_files_mem(uintptr_t addr, size_t len)
+{
+  files = (file_t*) addr;
+  MAX_FILES = len / sizeof(file_t);
+
+  // files[MAX_FILES] = {[0 ... MAX_FILES-1] = {-1,{0}}};
+  for (file_t* f = files; f < files + MAX_FILES; f++) {
+    f->kfd = -1;
+    atomic_set(&f->refcnt, 0);
+  }
+}
+
 void file_init()
 {
+  uintptr_t fds_addr = 0, files_addr = 0;
+  size_t fds_len = 0, files_len = 0;
+
+  vm_file_init_get_reserved_file_mem(&fds_addr, &fds_len, &files_addr, &files_len);
+  file_init_fds_mem(fds_addr, fds_len);
+  file_init_files_mem(files_addr, files_len);
+
   stdin = file_get_free();
   stdout = file_get_free();
   stderr = file_get_free();

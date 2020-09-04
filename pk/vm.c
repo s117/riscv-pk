@@ -14,6 +14,13 @@ typedef struct {
   int prot;
 } vmr_t;
 
+static const size_t fd_pages = 1;    // 1024 fds   - 1 x 8K
+static const size_t files_pages = 2; // 1024 files - 2 x 8K
+static const size_t vmr_pages = 6;   // 1024 VMR   - 6 x 8K
+static const size_t min_free_pages = 2*RISCV_PGLEVELS;
+static const size_t min_stack_pages = 8;
+static const size_t max_stack_pages = 1024;
+
 static size_t MAX_VMR;
 static spinlock_t vm_lock = SPINLOCK_INIT;
 static vmr_t* vmrs;
@@ -434,11 +441,32 @@ void populate_mapping(const void* start, size_t size, int prot)
   }
 }
 
+void vm_file_init_get_reserved_file_mem (
+  uintptr_t* fd_addr, size_t* fd_len,
+  uintptr_t* files_addr, size_t* files_len
+)
+{
+  uint32_t mem_mb = *(volatile uint32_t*)0;
+  uintptr_t max_addr = (uintptr_t)mem_mb << 20;
+
+  size_t fd_reserved_len = fd_pages * RISCV_PGSIZE;
+  size_t files_reserved_len = files_pages * RISCV_PGSIZE;
+
+  uintptr_t fd_reserved = max_addr - fd_reserved_len;
+  uintptr_t files_reserved = fd_reserved - files_reserved_len;
+
+  *fd_addr = fd_reserved;
+  *fd_len = fd_reserved_len;
+
+  *files_addr = files_reserved;
+  *files_len = files_reserved_len;
+}
+
 void vm_init()
 {
   extern char _end;
   current.user_min = ROUNDUP((uintptr_t)&_end, RISCV_PGSIZE);
-  kassert(current.user_min < 0x10000);
+  kassert(current.user_min <= 0x10000);
   current.brk_min = current.user_min;
   current.brk = 0;
 
@@ -456,17 +484,26 @@ void vm_init()
     uintptr_t max_addr = (uintptr_t)mem_mb << 20;
     size_t mem_pages = max_addr >> RISCV_PGSHIFT;
     total_phy_pages = mem_pages;
-    const size_t vmr_pages = 6;
-    const size_t min_free_pages = 2*RISCV_PGLEVELS;
-    const size_t min_stack_pages = 8;
-    const size_t max_stack_pages = 1024;
+
     kassert(mem_pages > min_free_pages + min_stack_pages + vmr_pages);
     free_pages = MAX(mem_pages >> (RISCV_PGLEVEL_BITS-1), min_free_pages);
     size_t stack_pages = CLAMP(mem_pages/32, min_stack_pages, max_stack_pages);
 
-    MAX_VMR = (vmr_pages * RISCV_PGSIZE) / sizeof(vmr_t); // 6 x 8K pages provides 1024 VMR
-    vmrs = (vmr_t*)(max_addr - vmr_pages * RISCV_PGSIZE);
-    first_free_page = (uintptr_t)vmrs - free_pages * RISCV_PGSIZE;
+    const size_t file_pages = fd_pages + files_pages;
+
+    const uintptr_t file_reserved = max_addr - file_pages * RISCV_PGSIZE;
+    const uintptr_t vmrs_reserved = file_reserved - vmr_pages * RISCV_PGSIZE;
+    const uintptr_t pt_reserved = vmrs_reserved - free_pages * RISCV_PGSIZE;
+
+    const uintptr_t kernel_reserved_from = pt_reserved;
+    const uintptr_t kernel_reserved_to = kernel_reserved_from + (
+                                  file_pages + vmr_pages + free_pages
+                                ) * RISCV_PGSIZE;
+
+    MAX_VMR = (vmr_pages * RISCV_PGSIZE) / sizeof(vmr_t);
+    vmrs = (vmr_t*)vmrs_reserved;
+
+    first_free_page = pt_reserved;
 
     uintptr_t root_page_table_paddr = __page_alloc();
     kassert(root_page_table_paddr);
@@ -487,7 +524,7 @@ void vm_init()
 
     if (have_vm)
     {
-      __map_kernel_range(first_free_page, (free_pages + vmr_pages) * RISCV_PGSIZE, PROT_READ|PROT_WRITE);
+      __map_kernel_range(kernel_reserved_from, kernel_reserved_to - kernel_reserved_from, PROT_READ|PROT_WRITE);
       kassert(__do_mmap(stack_bot, stack_size, -1, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == stack_bot);
       set_csr(status, SR_VM);
     }

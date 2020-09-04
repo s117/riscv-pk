@@ -28,6 +28,11 @@ uintptr_t do_mremap(uintptr_t addr, size_t old_size, size_t new_size, int flags)
 uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot);
 uintptr_t do_brk(uintptr_t addr);
 
+void vm_file_init_get_reserved_file_mem (
+  uintptr_t* fd_addr, size_t* fd_len,
+  uintptr_t* files_addr, size_t* files_len
+);
+
 size_t vm_stat_total_phy_pages();
 size_t vm_stat_mapped_kernel_virt_pages();
 size_t vm_stat_mapped_user_virt_pages();
