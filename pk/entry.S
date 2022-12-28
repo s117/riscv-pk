@@ -1,5 +1,4 @@
 // See LICENSE for license details.
-.include "csr_2.1.inc"
 
 #include "encoding.h"
 
