@@ -112,9 +112,7 @@ pop_tf:  # write the trap frame onto the stack
   csrr  x1, sup0
   csrw  epc, x2
   csrr  x2, sup1
-  # To cope with the change in 'sret' instruction encoding, issue the
-  # old encoding of 'sret' directly
-  .word 0x80000073 # sret
+  sret
 
   .global  trap_entry
 trap_entry:
