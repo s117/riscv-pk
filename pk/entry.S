@@ -112,7 +112,7 @@ pop_tf:  # write the trap frame onto the stack
   csrr  x1, sup0
   csrw  epc, x2
   csrr  x2, sup1
-  sret
+  sret.old # Use this custom instruction to issue the old sret command (0x80000073)
 
   .global  trap_entry
 trap_entry:
