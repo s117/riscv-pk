@@ -77,6 +77,7 @@ struct rlimit {
 #define SYS_fstatat 79
 #define SYS_access 1033
 #define SYS_faccessat 48
+#define SYS_faccessat2 439
 #define SYS_pread 67
 #define SYS_pwrite 68
 #define SYS_uname 160

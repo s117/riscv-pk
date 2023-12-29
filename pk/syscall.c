@@ -602,6 +602,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_writev] = sys_writev,
     [SYS_access] = sys_access,
     [SYS_faccessat] = sys_faccessat,
+    [SYS_faccessat2] = sys_stub_nosys,
     [SYS_fcntl] = sys_fcntl,
     [SYS_ftruncate] = sys_ftruncate,
     [SYS_getdents64] = sys_getdents64,
