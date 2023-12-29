@@ -6,7 +6,7 @@
 #include "frontend.h"
 #include "vm.h"
 #include <string.h>
-#include <errno.h>
+#include "linux-errno.h"
 
 typedef long (*syscall_t)(long, long, long, long, long, long, long);
 

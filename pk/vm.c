@@ -3,7 +3,7 @@
 #include "atomic.h"
 #include "pk.h"
 #include <stdint.h>
-#include <errno.h>
+#include "linux-errno.h"
 
 typedef struct {
   uintptr_t addr;
