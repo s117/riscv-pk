@@ -36,7 +36,7 @@ m4_define( proj_version, [?])
 # Setup
 #-------------------------------------------------------------------------
 
-AC_INIT(proj_name,proj_version,proj_maintainer,proj_abbreviation)
+AC_INIT([proj_name],[proj_version],[proj_maintainer],[proj_abbreviation])
 AC_CONFIG_SRCDIR([pk/pk.h])
 AC_CONFIG_AUX_DIR([scripts])
 AC_CANONICAL_BUILD
@@ -71,7 +71,9 @@ AC_HEADER_STDC
 # Default compiler flags
 #-------------------------------------------------------------------------
 
-AC_SUBST([CFLAGS],  ["-Wall -Os -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks"])
+AC_SUBST([CFLAGS],  ["-march=rv64imafd -mabi=lp64d -D__riscv64 -Wall -g -Os -std=gnu99 -Wno-unused -Wno-attributes -fno-delete-null-pointer-checks"])
+AC_SUBST([ASFLAGS], ["-march=rv64imafd -mabi=lp64d"])
+AC_SUBST([LIBS],    ["-lgcc"])
 
 #-------------------------------------------------------------------------
 # MCPPBS subproject list
