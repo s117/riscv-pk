@@ -274,6 +274,17 @@ long sys_faccessat(int dirfd, const char *name, int mode)
   return -EBADF;
 }
 
+long sys_readlinkat(int dirfd, const char *pathname, char* buf, size_t bufsiz)
+{
+  int kfd = at_kfd(dirfd);
+  if (kfd != -1) {
+    populate_mapping(buf, bufsiz, PROT_WRITE);
+    size_t name_size = strlen(pathname)+1;
+    return frontend_syscall(SYS_readlinkat, kfd, (uintptr_t)pathname, name_size, (uintptr_t)buf, bufsiz, 0, 0);
+  }
+  return -EBADF;
+}
+
 long sys_access(const char *name, int mode)
 {
   return sys_faccessat(AT_FDCWD, name, mode);
@@ -596,7 +607,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_getdents64] = sys_getdents64,
     [SYS_dup] = sys_dup,
     [SYS_dup3] = sys_dup3,
-    [SYS_readlinkat] = sys_stub_nosys,
+    [SYS_readlinkat] = sys_readlinkat,
     [SYS_rt_sigprocmask] = sys_stub_success,
     [SYS_ioctl] = sys_stub_nosys,
     [SYS_clock_gettime] = sys_clock_gettime,
