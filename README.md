@@ -13,6 +13,7 @@ Build Steps
 We assume that the RISCV environment variable is set to the RISC-V tools
 install path, and that the riscv-gcc package is installed.
 
+    $ ./scripts/autogen.sh
     $ mkdir build
     $ cd build
     $ ../configure --prefix=$RISCV/riscv64-unknown-elf --host=riscv64-unknown-elf
