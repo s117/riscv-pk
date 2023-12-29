@@ -12,6 +12,7 @@ pk_hdrs = \
 	frontend.h \
 	elf.h \
 	vm.h \
+	linux-errno.h \
 
 pk_c_srcs = \
 	init.c \

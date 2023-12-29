@@ -1,11 +1,11 @@
 // See LICENSE for license details.
 
 #include <string.h>
-#include <errno.h>
 #include "file.h"
 #include "pk.h"
 #include "frontend.h"
 #include "vm.h"
+#include "linux-errno.h"
 
 static size_t MAX_FDS = 0;
 static atomic_t* fds = NULL;
