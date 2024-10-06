@@ -7,7 +7,6 @@
 #include "vm.h"
 #include <string.h>
 #include <errno.h>
-#include <stdio.h>
 
 typedef long (*syscall_t)(long, long, long, long, long, long, long);
 
