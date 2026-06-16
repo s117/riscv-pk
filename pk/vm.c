@@ -333,7 +333,7 @@ uintptr_t __do_brk(size_t addr)
   if (current.brk > newbrk_page)
     __do_munmap(newbrk_page, current.brk - newbrk_page);
   else if (current.brk < newbrk_page)
-    kassert(__do_mmap(current.brk, newbrk_page - current.brk, -1, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == current.brk);
+    kassert(__do_mmap(current.brk, newbrk_page - current.brk, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == current.brk);
   current.brk = newbrk_page;
 
   return newbrk;
@@ -525,7 +525,7 @@ void vm_init()
     if (have_vm)
     {
       __map_kernel_range(kernel_reserved_from, kernel_reserved_to - kernel_reserved_from, PROT_READ|PROT_WRITE);
-      kassert(__do_mmap(stack_bot, stack_size, -1, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == stack_bot);
+      kassert(__do_mmap(stack_bot, stack_size, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == stack_bot);
       set_csr(status, SR_VM);
     }
 
