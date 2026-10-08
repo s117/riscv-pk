@@ -93,6 +93,8 @@ static void user_init(struct mainvars* args)
   current.phdr_top = stack_top;
   load_elf((char*)(uintptr_t)args->argv[0], &current);
   stack_top = current.phdr;
+  // the initial program break is the end of the program's bss
+  current.brk = current.brk_min;
 
   struct {
     long key;

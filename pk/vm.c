@@ -161,7 +161,7 @@ static int __va_avail(uintptr_t vaddr)
 
 static uintptr_t __vm_alloc(size_t npage)
 {
-  uintptr_t start = current.brk, end = current.mmap_max - npage*RISCV_PGSIZE;
+  uintptr_t start = ROUNDUP(current.brk, RISCV_PGSIZE), end = current.mmap_max - npage*RISCV_PGSIZE;
   for (uintptr_t a = start; a <= end; a += RISCV_PGSIZE)
   {
     if (!__va_avail(a))
@@ -320,26 +320,21 @@ uintptr_t do_mmap(uintptr_t addr, size_t length, int prot, int flags, int fd, of
 
 uintptr_t __do_brk(size_t addr)
 {
-  if (addr == 0)
+  // Follow the Linux semantics: the break never moves below its initial value
+  // (brk_min) or above brk_max. An out-of-range request, brk(0) included,
+  // leaves the break untouched. The current break is returned in every case.
+  if (addr < current.brk_min || addr > current.brk_max)
     return current.brk;
 
-  uintptr_t newbrk = addr;
-  if (addr < current.brk_min)
-    newbrk = current.brk_min;
-  else if (addr > current.brk_max)
-    newbrk = current.brk_max;
+  uintptr_t oldbrk_page = ROUNDUP(current.brk, RISCV_PGSIZE);
+  uintptr_t newbrk_page = ROUNDUP(addr, RISCV_PGSIZE);
+  if (oldbrk_page > newbrk_page)
+    __do_munmap(newbrk_page, oldbrk_page - newbrk_page);
+  else if (oldbrk_page < newbrk_page)
+    kassert(__do_mmap(oldbrk_page, newbrk_page - oldbrk_page, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == oldbrk_page);
+  current.brk = addr;
 
-  if (current.brk == 0)
-    current.brk = ROUNDUP(current.brk_min, RISCV_PGSIZE);
-
-  uintptr_t newbrk_page = ROUNDUP(newbrk, RISCV_PGSIZE);
-  if (current.brk > newbrk_page)
-    __do_munmap(newbrk_page, current.brk - newbrk_page);
-  else if (current.brk < newbrk_page)
-    kassert(__do_mmap(current.brk, newbrk_page - current.brk, PROT_READ|PROT_WRITE, MAP_FIXED|MAP_PRIVATE|MAP_ANONYMOUS, 0, 0) == current.brk);
-  current.brk = newbrk_page;
-
-  return newbrk;
+  return addr;
 }
 
 uintptr_t do_brk(size_t addr)
