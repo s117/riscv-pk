@@ -396,8 +396,16 @@ uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot)
           res = -EACCES;
           break;
         }
-        v->prot = prot;
-      }else{
+        if (addr <= v->addr && addr + length >= v->addr + v->length) {
+          // the VMR is entirely covered, all its untouched pages change
+          v->prot = prot;
+          continue;
+        }
+        // the VMR is shared with pages outside the range (e.g. static RELRO),
+        // so populate this page and change only its own permissions
+        kassert(__handle_page_fault(a, 0) == 0);
+      }
+      {
         pte_t perms = pte_create(0, 0, prot);
         if ((*pte & perms) != perms){
           //TODO:look at file to find perms
@@ -408,6 +416,7 @@ uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot)
         *pte = permset;
       }
     }
+    flush_tlb();
   spinlock_unlock(&vm_lock);
 
   return res;
