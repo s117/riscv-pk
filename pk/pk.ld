@@ -34,6 +34,11 @@ SECTIONS
     *(.rodata)
     *(.rodata.*)
     *(.gnu.linkonce.r.*)
+    *(.srodata.cst16)
+    *(.srodata.cst8)
+    *(.srodata.cst4)
+    *(.srodata.cst2)
+    *(.srodata .srodata.*)
   }
 
   /* End of code and read-only segment */
@@ -57,6 +62,13 @@ SECTIONS
     *(.gnu.linkonce.d.*)
   }
 
+  /* sdata: Writable small data */
+  .sdata :
+  {
+    *(.sdata .sdata.*)
+    *(.gnu.linkonce.s.*)
+  }
+
   /* End of initialized data segment */
   . = ALIGN(4);
   PROVIDE( edata = . );
@@ -71,7 +83,12 @@ SECTIONS
   _fbss = .;
 
   /* sbss: Uninitialized writeable small data section */
-  . = .;
+  .sbss :
+  {
+    *(.sbss .sbss.*)
+    *(.gnu.linkonce.sb.*)
+    *(.scommon)
+  }
 
   /* bss: Uninitialized writeable data section */
   . = .;
@@ -87,4 +104,12 @@ SECTIONS
   /* End of uninitialized data segment (used by syscalls.c for heap) */
   PROVIDE( end = . );
   _end = .;
+
+  /* PK never unwinds, and nothing may be placed beyond _end */
+  /DISCARD/ :
+  {
+    *(.eh_frame .eh_frame.* .eh_frame_hdr)
+    *(.note.gnu.build-id)
+    *(.note.GNU-stack)
+  }
 }

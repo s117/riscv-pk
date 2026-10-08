@@ -8,11 +8,6 @@
 #include <stdint.h>
 #include <string.h>
 
-#ifdef linux
-#define __clear_cache(...) asm("fence.i")
-#else
-#define __clear_cache(...) __clear_cache(__VA_ARGS__)
-#endif
 
 elf_info current;
 int have_vm = 1; // unless -p flag is given
@@ -159,7 +154,7 @@ static void user_init(struct mainvars* args)
 
   trapframe_t tf;
   init_tf(&tf, current.entry, stack_top, current.elf64);
-  __clear_cache(0, 0);
+  asm volatile ("fence.i" ::: "memory"); // the program was just loaded
   pop_tf(&tf);
 }
 
