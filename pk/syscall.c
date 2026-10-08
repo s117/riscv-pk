@@ -83,6 +83,20 @@ ssize_t sys_pread(int fd, char* buf, size_t n, off_t offset)
   return r;
 }
 
+ssize_t sys_pwrite(int fd, const char* buf, size_t n, off_t offset)
+{
+  ssize_t r = -EBADF;
+  file_t* f = file_get(fd);
+
+  if (f)
+  {
+    r = file_pwrite(f, buf, n, offset);
+    file_decref(f);
+  }
+
+  return r;
+}
+
 ssize_t sys_write(int fd, const char* buf, size_t n)
 {
   ssize_t r = -EBADF;
@@ -213,7 +227,9 @@ int sys_dup(int fd)
 
 int sys_dup3(int fd, int newfd, int flags)
 {
-  kassert(flags == 0);
+  // O_CLOEXEC is meaningless as PK never execs, anything else is invalid
+  if (flags & ~LINUX_O_CLOEXEC)
+    return -EINVAL;
   int r = -EBADF;
   file_t* f = file_get(fd);
 
@@ -368,14 +384,67 @@ int sys_uname(void* buf)
   return 0;
 }
 
+// The only process has a single thread, whose PID and TID are both 1
+#define PK_PID 1
+
 pid_t sys_getpid()
 {
-  return 0;
+  return PK_PID;
 }
 
 pid_t sys_gettid()
 {
+  return PK_PID;
+}
+
+int sys_set_tid_address(int* tidptr)
+{
+  return PK_PID;
+}
+
+int sys_tgkill(pid_t tgid, pid_t tid, int sig)
+{
+  if (tgid != PK_PID || tid != PK_PID)
+    return -ESRCH;
+  if (sig == 0)
+    return 0;
+  // no signal delivery in PK, so every signal terminates the program
+  printk("killed by signal %d\n", sig);
+  sys_exit(128 + sig);
+}
+
+int sys_kill(pid_t pid, int sig)
+{
+  if (pid != PK_PID && pid != 0 && pid != -1)
+    return -ESRCH;
+  return sys_tgkill(PK_PID, PK_PID, sig);
+}
+
+int sys_getcpu(unsigned* cpu, unsigned* node, void* cache)
+{
+  if (cpu)
+  {
+    populate_mapping(cpu, sizeof(*cpu), PROT_WRITE);
+    *cpu = 0;
+  }
+  if (node)
+  {
+    populate_mapping(node, sizeof(*node), PROT_WRITE);
+    *node = 0;
+  }
   return 0;
+}
+
+long sys_sched_getaffinity(pid_t pid, size_t len, unsigned long* mask)
+{
+  if (pid != 0 && pid != PK_PID)
+    return -ESRCH;
+  if (len < sizeof(*mask))
+    return -EINVAL;
+  // a single CPU, as the kernel does, report the size of its CPU mask
+  populate_mapping(mask, sizeof(*mask), PROT_WRITE);
+  *mask = 1;
+  return sizeof(*mask);
 }
 
 int sys_getuid()
@@ -492,6 +561,8 @@ int sys_gettimeofday(long* loc)
 
 long sys_clock_gettime(int clk_id, long *loc)
 {
+  populate_mapping(loc, 2*long_bytes, PROT_WRITE);
+
   uintptr_t t = rdcycle();
   put_long(loc, 0, t/CLOCK_FREQ);
   put_long(loc, 1, (t % CLOCK_FREQ) / (CLOCK_FREQ / 1000000000));
@@ -514,17 +585,71 @@ ssize_t sys_writev(int fd, const void* iov, int cnt)
   return ret;
 }
 
-int sys_getdents64(int fd, void* dirbuf, int count)
+ssize_t sys_readv(int fd, const void* iov, int cnt)
 {
-  file_t* f = file_get(fd);
+  populate_mapping(iov, cnt*2*long_bytes, PROT_READ);
 
-  populate_mapping(dirbuf, count, PROT_WRITE);
-  return frontend_syscall(SYS_getdents64, f->kfd, (uintptr_t)dirbuf, count, 0, 0, 0, 0);
+  ssize_t ret = 0;
+  for (int i = 0; i < cnt; i++)
+  {
+    size_t len = get_long(iov, 2*i+1);
+    ssize_t r = sys_read(fd, (void*)get_long(iov, 2*i), len);
+    if (r < 0)
+      return ret ? ret : r;
+    ret += r;
+    if (r < len)
+      break;
+  }
+  return ret;
 }
 
-static int sys_set_tid_address()
+int sys_getdents64(int fd, void* dirbuf, int count)
 {
-  return 1;
+  int r = -EBADF;
+  file_t* f = file_get(fd);
+
+  if (f)
+  {
+    populate_mapping(dirbuf, count, PROT_WRITE);
+    r = frontend_syscall(SYS_getdents64, f->kfd, (uintptr_t)dirbuf, count, 0, 0, 0, 0);
+    file_decref(f);
+  }
+
+  return r;
+}
+
+#define FUTEX_WAIT 0
+#define FUTEX_WAKE 1
+#define FUTEX_WAIT_BITSET 9
+#define FUTEX_WAKE_BITSET 10
+#define FUTEX_CMD_MASK ~(128 | 256) // ~(FUTEX_PRIVATE_FLAG | FUTEX_CLOCK_REALTIME)
+
+long sys_futex(int* uaddr, int op, int val, const void* timeout)
+{
+  switch (op & FUTEX_CMD_MASK)
+  {
+    case FUTEX_WAKE:
+    case FUTEX_WAKE_BITSET:
+      // nobody else to wake up in a single-threaded process
+      return 0;
+    case FUTEX_WAIT:
+    case FUTEX_WAIT_BITSET:
+      populate_mapping(uaddr, sizeof(*uaddr), PROT_READ);
+      if (*uaddr != val)
+        return -EAGAIN;
+      if (timeout)
+        return -ETIMEDOUT;
+      // the only thread waiting on itself, would block forever
+      panic("futex wait on %p would block forever", uaddr);
+    default:
+      return -ENOSYS;
+  }
+}
+
+long sys_riscv_flush_icache(uintptr_t start, uintptr_t end, uintptr_t flags)
+{
+  asm volatile ("fence.i" ::: "memory");
+  return 0;
 }
 
 int sys_getrlimit(unsigned int resource, struct rlimit* rlim)
@@ -561,6 +686,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_exit_group] = sys_exit,
     [SYS_read] = sys_read,
     [SYS_pread] = sys_pread,
+    [SYS_pwrite] = sys_pwrite,
     [SYS_write] = sys_write,
     [SYS_open] = sys_open,
     [SYS_openat] = sys_openat,
@@ -599,6 +725,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_gettimeofday] = sys_gettimeofday,
     [SYS_times] = sys_times,
     [SYS_writev] = sys_writev,
+    [SYS_readv] = sys_readv,
     [SYS_access] = sys_access,
     [SYS_faccessat] = sys_faccessat,
     [SYS_faccessat2] = sys_stub_nosys,
@@ -614,14 +741,24 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_getrusage] = sys_stub_nosys,
     [SYS_getrlimit] = sys_stub_nosys,
     [SYS_setrlimit] = sys_stub_nosys,
-    [SYS_set_tid_address] = sys_stub_nosys,
+    [SYS_set_tid_address] = sys_set_tid_address,
     [SYS_set_robust_list] = sys_stub_nosys,
     [SYS_madvise] = sys_stub_nosys,
     [SYS_getrandom] = sys_getrandom,
+    [SYS_kill] = sys_kill,
+    [SYS_tgkill] = sys_tgkill,
+    [SYS_futex] = sys_futex,
+    [SYS_getcpu] = sys_getcpu,
+    [SYS_sched_getaffinity] = sys_sched_getaffinity,
+    [SYS_riscv_flush_icache] = sys_riscv_flush_icache,
+    // glibc falls back gracefully when these are not available
+    [SYS_rseq] = sys_stub_nosys,
+    [SYS_riscv_hwprobe] = sys_stub_nosys,
+    [SYS_statx] = sys_stub_nosys,
+    [SYS_clone3] = sys_stub_nosys,
+    [SYS_close_range] = sys_stub_nosys,
   };
 
-  if(n >= ARRAY_SIZE(syscall_table) || !syscall_table[n])
-    panic("bad syscall array_size %ld #%ld->%ld!",ARRAY_SIZE(syscall_table),n,syscall_table[n]);
   const static void* old_syscall_table[] = {
     [-OLD_SYSCALL_THRESHOLD + SYS_open] = sys_open,
     [-OLD_SYSCALL_THRESHOLD + SYS_link] = sys_link,
@@ -643,6 +780,6 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
   if (!f)
     panic("bad syscall #%ld!",n);
 
-  long r = ((syscall_t)syscall_table[n])(a0, a1, a2, a3, a4, a5, n);
+  long r = f(a0, a1, a2, a3, a4, a5, n);
   return r;
 }

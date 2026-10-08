@@ -133,6 +133,17 @@ struct sysinfo {
 #define SYS_set_robust_list 99
 #define SYS_madvise 233
 #define SYS_getrandom 278
+#define SYS_readv 65
+#define SYS_futex 98
+#define SYS_sched_getaffinity 123
+#define SYS_tgkill 131
+#define SYS_getcpu 168
+#define SYS_riscv_hwprobe 258
+#define SYS_riscv_flush_icache 259
+#define SYS_statx 291
+#define SYS_rseq 293
+#define SYS_clone3 435
+#define SYS_close_range 436
 
 #define OLD_SYSCALL_THRESHOLD 1024
 #define SYS_open 1024
@@ -149,6 +160,7 @@ struct sysinfo {
 #define PTR_ERR(x) ((long)(x))
 
 #define AT_FDCWD -100
+#define LINUX_O_CLOEXEC 02000000
 
 void sys_exit(int code) __attribute__((noreturn));
 long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n);
