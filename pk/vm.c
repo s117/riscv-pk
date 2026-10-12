@@ -19,7 +19,7 @@ static const size_t files_pages = 2; // 1024 files - 2 x 8K
 static const size_t vmr_pages = 6;   // 1024 VMR   - 6 x 8K
 static const size_t min_free_pages = 2*RISCV_PGLEVELS;
 static const size_t min_stack_pages = 8;
-static const size_t max_stack_pages = 1024;
+static const size_t max_stack_pages = 8192; // 64 MiB
 
 static size_t MAX_VMR;
 static spinlock_t vm_lock = SPINLOCK_INIT;
