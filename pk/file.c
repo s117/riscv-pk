@@ -24,10 +24,13 @@ void file_decref(file_t* f)
   if (atomic_add(&f->refcnt, -1) == 2)
   {
     int kfd = f->kfd;
+    f->kfd = -1; // a free slot holds no host fd
     mb();
     atomic_set(&f->refcnt, 0);
 
-    frontend_syscall(SYS_close, kfd, 0, 0, 0, 0, 0, 0);
+    // a file whose host open failed has no host fd to close
+    if (kfd >= 0)
+      frontend_syscall(SYS_close, kfd, 0, 0, 0, 0, 0, 0);
   }
 }
 
@@ -148,7 +151,7 @@ file_t* file_openat(int dirfd, const char* fn, int flags, int mode)
   }
   else
   {
-    f->kfd = -1; // a reused slot still holds the host fd of its previous file: do not close that
+    f->kfd = -1; // the host open failed: there is no host fd to close
     file_decref(f);
     return ERR_PTR(ret);
   }
