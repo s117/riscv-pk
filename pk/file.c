@@ -63,13 +63,12 @@ int file_dup3(file_t* f, int newfd)
   if (newfd < 0 || newfd >= MAX_FDS)
       return -1;
   kassert(sizeof(long) == sizeof(file_t*));
-  if (atomic_cas(&fds[newfd], 0, (long)f) == 0)
-  {
-      file_incref(f);
-      return newfd;
-  }
-
-  return -1;
+  // as in Linux, a file open at newfd is closed: the fd table drops its reference
+  file_incref(f);
+  file_t* old = (file_t*)atomic_swap(&fds[newfd], (long)f);
+  if (old)
+    file_decref(old);
+  return newfd;
 }
 
 static void file_init_fds_mem(uintptr_t addr, size_t len)

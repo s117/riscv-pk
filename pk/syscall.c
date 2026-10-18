@@ -230,6 +230,8 @@ int sys_dup(int fd)
   if (f)
   {
     r = file_dup(f);
+    if (r == -1)
+      r = -EMFILE;
     file_decref(f);
   }
 
@@ -239,7 +241,7 @@ int sys_dup(int fd)
 int sys_dup3(int fd, int newfd, int flags)
 {
   // O_CLOEXEC is meaningless as PK never execs, anything else is invalid
-  if (flags & ~LINUX_O_CLOEXEC)
+  if ((flags & ~LINUX_O_CLOEXEC) || fd == newfd)
     return -EINVAL;
   int r = -EBADF;
   file_t* f = file_get(fd);
@@ -247,6 +249,8 @@ int sys_dup3(int fd, int newfd, int flags)
   if (f)
   {
     r = file_dup3(f, newfd);
+    if (r == -1)
+      r = -EBADF; // newfd out of range
     file_decref(f);
   }
 
