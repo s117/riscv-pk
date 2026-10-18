@@ -162,6 +162,8 @@ struct sysinfo {
 
 #define AT_FDCWD -100
 #define LINUX_O_CLOEXEC 02000000
+#define LINUX_F_DUPFD 0
+#define LINUX_F_DUPFD_CLOEXEC 1030
 
 void sys_exit(int code) __attribute__((noreturn));
 long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n);

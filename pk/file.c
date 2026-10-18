@@ -39,9 +39,10 @@ static file_t* file_get_free()
   return NULL;
 }
 
-int file_dup(file_t* f)
+// Install f at the lowest free fd that is at least minfd; -1 if there is none.
+int file_dup_from(file_t* f, int minfd)
 {
-  for (int i = 0; i < MAX_FDS; i++)
+  for (int i = minfd < 0 ? 0 : minfd; i < MAX_FDS; i++)
   {
     if (atomic_cas(&fds[i], 0, (long)f) == 0)
     {
@@ -50,6 +51,11 @@ int file_dup(file_t* f)
     }
   }
   return -1;
+}
+
+int file_dup(file_t* f)
+{
+  return file_dup_from(f, 0);
 }
 
 int file_dup3(file_t* f, int newfd)

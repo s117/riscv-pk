@@ -20,6 +20,7 @@ file_t* file_open(const char* fn, int flags, int mode);
 void file_decref(file_t*);
 void file_incref(file_t*);
 int file_dup(file_t*);
+int file_dup_from(file_t*, int minfd);
 int file_dup3(file_t*, int newfd);
 
 file_t* file_openat(int dirfd, const char* fn, int flags, int mode);
