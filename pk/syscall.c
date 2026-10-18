@@ -294,16 +294,46 @@ long sys_faccessat(int dirfd, const char *name, int mode)
 }
 
 // The absolute path of the loaded program. readlink("/proc/self/exe") answers with it
-// instead of letting the host answer with the path of the simulator.
+// instead of letting the host answer with the path of the simulator. Empty if unknown.
 static char exe_path[1024];
+
+// Drop the "." and empty components of an absolute path and apply its ".." components,
+// in place. Symlinks are not resolved, unlike the kernel's /proc/self/exe.
+static void normalize_path(char* path)
+{
+  size_t out = 0;
+  const char* p = path;
+  while (*p) {
+    while (*p == '/')
+      p++;
+    const char* end = p;
+    while (*end && *end != '/')
+      end++;
+    size_t len = end - p;
+    if (len == 2 && p[0] == '.' && p[1] == '.') {
+      while (out > 0 && path[--out] != '/')
+        ;
+    } else if (len > 0 && !(len == 1 && p[0] == '.')) {
+      path[out++] = '/';
+      for (size_t i = 0; i < len; i++) // forward copy: the output never passes the input
+        path[out++] = p[i];
+    }
+    p = end;
+  }
+  if (out == 0)
+    path[out++] = '/';
+  path[out] = '\0';
+}
 
 void set_exe_path(const char* argv0)
 {
   size_t n = 0, len = strlen(argv0);
   exe_path[0] = '\0';
   if (argv0[0] != '/') {
-    if (frontend_syscall(SYS_getcwd, (uintptr_t)exe_path, sizeof(exe_path), 0, 0, 0, 0, 0) < 0)
+    if (frontend_syscall(SYS_getcwd, (uintptr_t)exe_path, sizeof(exe_path), 0, 0, 0, 0, 0) < 0) {
+      exe_path[0] = '\0';
       return;
+    }
     n = strlen(exe_path);
     exe_path[n++] = '/';
   }
@@ -312,6 +342,7 @@ void set_exe_path(const char* argv0)
     return;
   }
   memcpy(exe_path + n, argv0, len + 1);
+  normalize_path(exe_path);
 }
 
 static int is_proc_self_exe(const char* path)
@@ -324,7 +355,10 @@ static int is_proc_self_exe(const char* path)
 
 long sys_readlinkat(int dirfd, const char *pathname, char* buf, size_t bufsiz)
 {
-  if (exe_path[0] && is_proc_self_exe(pathname)) {
+  if (is_proc_self_exe(pathname)) {
+    // never let the host answer with the simulator: unknown reads as a deleted program
+    if (!exe_path[0])
+      return -ENOENT;
     size_t len = strlen(exe_path);
     if (len > bufsiz)
       len = bufsiz;
