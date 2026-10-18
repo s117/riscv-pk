@@ -348,30 +348,23 @@ uintptr_t do_brk(size_t addr)
 
 uintptr_t do_mremap(uintptr_t addr, size_t old_size, size_t new_size, int flags)
 {
-  uintptr_t res = -1;
-  if (((addr | old_size | new_size) & (RISCV_PGSIZE-1)) ||
-      (flags & MREMAP_FIXED))
+  old_size = ROUNDUP(old_size, RISCV_PGSIZE);
+  new_size = ROUNDUP(new_size, RISCV_PGSIZE);
+  if ((addr & (RISCV_PGSIZE-1)) || new_size == 0 || (flags & MREMAP_FIXED) ||
+      addr < current.user_min || addr + old_size > current.stack_top || addr + old_size < addr)
     return -EINVAL;
 
+  // Growing needs the pages after the mapping, or a move; neither is supported, and
+  // callers such as glibc's realloc fall back to a copy.
+  if (new_size > old_size)
+    return -ENOMEM;
+
+  // Shrinking unmaps the tail, which releases its pages (and file references) as munmap does.
   spinlock_lock(&vm_lock);
-    for (size_t i = 0; i < MAX_VMR; i++)
-    {
-      if (vmrs[i].refcnt && addr == vmrs[i].addr && old_size == vmrs[i].length)
-      {
-        size_t old_npage = (vmrs[i].length-1)/RISCV_PGSIZE+1;
-        size_t new_npage = (new_size-1)/RISCV_PGSIZE+1;
-        if (new_size < old_size)
-          __do_munmap(addr + new_size, old_size - new_size);
-        else if (new_size > old_size)
-          __do_mmap(addr + old_size, new_size - old_size, vmrs[i].prot, 0,
-                    vmrs[i].file, vmrs[i].offset + new_size - old_size);
-        __vmr_decref(&vmrs[i], old_npage - new_npage);
-        res = addr;
-      }
-    }
+    __do_munmap(addr + new_size, old_size - new_size);
   spinlock_unlock(&vm_lock);
 
-  return res;
+  return addr;
 }
 
 uintptr_t do_mprotect(uintptr_t addr, size_t length, int prot)
