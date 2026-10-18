@@ -197,8 +197,10 @@ int sys_fcntl(int fd, int cmd, int arg)
     if (cmd == LINUX_F_DUPFD || cmd == LINUX_F_DUPFD_CLOEXEC) {
       // the copy must be a PK fd: the host's would be a number PK doesn't know, never closed
       // (O_CLOEXEC is meaningless as PK never execs)
-      r = arg < 0 ? -EINVAL : file_dup_from(f, arg);
-      if (r == -1)
+      // as in Linux, a minimum outside the fd range is invalid, no free fd from it is EMFILE
+      if (arg < 0 || arg >= file_fd_limit())
+        r = -EINVAL;
+      else if ((r = file_dup_from(f, arg)) == -1)
         r = -EMFILE;
     } else
       r = frontend_syscall(SYS_fcntl, f->kfd, cmd, arg, 0, 0, 0, 0);

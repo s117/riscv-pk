@@ -42,6 +42,12 @@ static file_t* file_get_free()
   return NULL;
 }
 
+// The number of fds: valid fds are 0 to file_fd_limit()-1.
+int file_fd_limit()
+{
+  return MAX_FDS;
+}
+
 // Install f at the lowest free fd that is at least minfd; -1 if there is none.
 int file_dup_from(file_t* f, int minfd)
 {
