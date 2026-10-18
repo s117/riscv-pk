@@ -165,5 +165,6 @@ struct sysinfo {
 
 void sys_exit(int code) __attribute__((noreturn));
 long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n);
+void set_exe_path(const char* argv0);
 
 #endif

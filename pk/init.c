@@ -86,6 +86,7 @@ static void user_init(struct mainvars* args)
 
   // load program named by argv[0]
   current.phdr_top = stack_top;
+  set_exe_path((char*)(uintptr_t)args->argv[0]);
   load_elf((char*)(uintptr_t)args->argv[0], &current);
   stack_top = current.phdr;
   // the initial program break is the end of the program's bss

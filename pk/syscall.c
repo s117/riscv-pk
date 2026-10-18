@@ -290,8 +290,45 @@ long sys_faccessat(int dirfd, const char *name, int mode)
   return -EBADF;
 }
 
+// The absolute path of the loaded program. readlink("/proc/self/exe") answers with it
+// instead of letting the host answer with the path of the simulator.
+static char exe_path[1024];
+
+void set_exe_path(const char* argv0)
+{
+  size_t n = 0, len = strlen(argv0);
+  exe_path[0] = '\0';
+  if (argv0[0] != '/') {
+    if (frontend_syscall(SYS_getcwd, (uintptr_t)exe_path, sizeof(exe_path), 0, 0, 0, 0, 0) < 0)
+      return;
+    n = strlen(exe_path);
+    exe_path[n++] = '/';
+  }
+  if (n + len + 1 > sizeof(exe_path)) {
+    exe_path[0] = '\0';
+    return;
+  }
+  memcpy(exe_path + n, argv0, len + 1);
+}
+
+static int is_proc_self_exe(const char* path)
+{
+  const char* want = "/proc/self/exe";
+  while (*want && *path == *want)
+    path++, want++;
+  return *want == '\0' && *path == '\0';
+}
+
 long sys_readlinkat(int dirfd, const char *pathname, char* buf, size_t bufsiz)
 {
+  if (exe_path[0] && is_proc_self_exe(pathname)) {
+    size_t len = strlen(exe_path);
+    if (len > bufsiz)
+      len = bufsiz;
+    populate_mapping(buf, len, PROT_WRITE);
+    memcpy(buf, exe_path, len);
+    return len;
+  }
   int kfd = at_kfd(dirfd);
   if (kfd != -1) {
     populate_mapping(buf, bufsiz, PROT_WRITE);
