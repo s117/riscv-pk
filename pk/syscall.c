@@ -757,6 +757,8 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_riscv_hwprobe] = sys_stub_nosys,
     [SYS_statx] = sys_stub_nosys,
     [SYS_clone3] = sys_stub_nosys,
+    // glibc's NSS tries the nscd socket first, then falls back to files
+    [SYS_socket] = sys_stub_nosys,
     [SYS_close_range] = sys_stub_nosys,
   };
 

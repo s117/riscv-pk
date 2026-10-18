@@ -123,6 +123,7 @@ struct sysinfo {
 #define SYS_dup 23
 #define SYS_dup3 24
 #define SYS_readlinkat 78
+#define SYS_socket 198
 #define SYS_rt_sigprocmask 135
 #define SYS_ioctl 29
 #define SYS_getrlimit 163
