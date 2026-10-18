@@ -740,15 +740,23 @@ long sys_riscv_flush_icache(uintptr_t start, uintptr_t end, uintptr_t flags)
   return 0;
 }
 
+// Only the fd limit is known: PK's fd table size. The other limits stay unsupported.
 int sys_getrlimit(unsigned int resource, struct rlimit* rlim)
 {
-  struct rlimit _rlim;
-  //return RLIM_INFINITY;
-  _rlim.rlim_cur = RLIM_INFINITY;
-  _rlim.rlim_max = RLIM_INFINITY;
-  //memcpy(rlim,&_rlim,sizeof(_rlim));
-  memset(rlim,1,sizeof(_rlim));
+  if (resource != RLIMIT_NOFILE)
+    return -ENOSYS;
+  populate_mapping(rlim, sizeof(*rlim), PROT_WRITE);
+  rlim->rlim_cur = rlim->rlim_max = file_fd_limit();
   return 0;
+}
+
+// glibc's getrlimit and setrlimit use prlimit64. PK can't enforce a limit, so setting one
+// stays unsupported; there is only one process, so pid is not checked.
+long sys_prlimit64(int pid, unsigned int resource, const struct rlimit* new_rlim, struct rlimit* old_rlim)
+{
+  if (new_rlim)
+    return -ENOSYS;
+  return old_rlim ? sys_getrlimit(resource, old_rlim) : 0;
 }
 
 ssize_t sys_getrandom(void *buf, size_t buflen, unsigned int flags)
@@ -807,7 +815,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_munmap] = sys_munmap,
     [SYS_mremap] = sys_mremap,
     [SYS_mprotect] = sys_mprotect,
-    [SYS_prlimit64] = sys_stub_nosys,
+    [SYS_prlimit64] = sys_prlimit64,
     [SYS_rt_sigaction] = sys_rt_sigaction,
     [SYS_time] = sys_time,
     [SYS_gettimeofday] = sys_gettimeofday,
@@ -827,7 +835,7 @@ long do_syscall(long a0, long a1, long a2, long a3, long a4, long a5, long n)
     [SYS_ioctl] = sys_stub_nosys,
     [SYS_clock_gettime] = sys_clock_gettime,
     [SYS_getrusage] = sys_stub_nosys,
-    [SYS_getrlimit] = sys_stub_nosys,
+    [SYS_getrlimit] = sys_getrlimit,
     [SYS_setrlimit] = sys_stub_nosys,
     [SYS_set_tid_address] = sys_set_tid_address,
     [SYS_set_robust_list] = sys_stub_nosys,
