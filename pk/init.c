@@ -55,7 +55,7 @@ static void handle_option(const char* s)
 
 struct mainvars {
   uint64_t argc;
-  uint64_t argv[127]; // this space is shared with the arg strings themselves
+  uint64_t argv[511]; // this space is shared with the arg strings themselves (4 KiB in all)
 };
 
 static struct mainvars* handle_args(struct mainvars* args)
@@ -161,7 +161,7 @@ static void user_init(struct mainvars* args)
 void boot()
 {
   file_init();
-  struct mainvars args0;
+  static struct mainvars args0; // too big for the 4 KiB boot stack
   struct mainvars* args = handle_args(&args0);
   vm_init();
   user_init(args);
