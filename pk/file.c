@@ -143,6 +143,7 @@ file_t* file_openat(int dirfd, const char* fn, int flags, int mode)
   }
   else
   {
+    f->kfd = -1; // a reused slot still holds the host fd of its previous file: do not close that
     file_decref(f);
     return ERR_PTR(ret);
   }
