@@ -137,7 +137,7 @@ int sys_openat(int dirfd, const char* name, int flags, int mode)
     // or the file is never closed and its slot leaks (open fails after ~1020 files)
     file_decref(file);
     if (fd < 0)
-      return -ENOMEM;
+      return -EMFILE;
 
     return fd;
   }

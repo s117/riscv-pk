@@ -140,7 +140,7 @@ file_t* file_openat(int dirfd, const char* fn, int flags, int mode)
 {
   file_t* f = file_get_free();
   if (f == NULL)
-    return ERR_PTR(-ENOMEM);
+    return ERR_PTR(-ENFILE); // no free file slot: the system's file table is full
 
   size_t fn_size = strlen(fn)+1;
   long ret = frontend_syscall(SYS_openat, dirfd, (long)fn, fn_size, flags, mode, 0, 0);
